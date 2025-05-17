@@ -1,32 +1,48 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
 
-# Load model and scaler
+# Load the trained model and scaler
 model = joblib.load("xgb_model.pkl")
 scaler = joblib.load("scaler.pkl")
 
+# Feature names used during training
+feature_names = [
+    'scaled_time', 'scaled_amount',
+    'V1', 'V2', 'V3', 'V4', 'V5', 'V6',
+    'V7', 'V8', 'V9', 'V10', 'V11', 'V12',
+    'V13', 'V14', 'V15', 'V16', 'V17', 'V18',
+    'V19', 'V20', 'V21', 'V22', 'V23', 'V24',
+    'V25', 'V26', 'V27', 'V28'
+]
+
+# Set up the Streamlit app
+st.set_page_config(page_title="Credit Card Fraud Detection", layout="centered")
 st.title("💳 Credit Card Fraud Detection")
-st.write("Upload a transaction CSV or enter values manually to check for fraud.")
+st.write("Enter the transaction details below to check if it's fraudulent.")
 
-uploaded_file = st.file_uploader("Upload a CSV with same structure", type="csv")
+# Input form
+user_input = []
+with st.form("input_form"):
+    for feature in feature_names:
+        value = st.number_input(f"{feature}", value=0.0, format="%.6f")
+        user_input.append(value)
+    submitted = st.form_submit_button("Predict")
 
-if uploaded_file:
-    data = pd.read_csv(uploaded_file)
-    data_scaled = scaler.transform(data)
-    prediction = model.predict(data_scaled)
-    st.write("Prediction for first row:", "Fraud ❌" if prediction[0] == 1 else "Legit ✅")
+# Predict button logic
+if submitted:
+    try:
+        # Prepare input
+        input_df = pd.DataFrame([user_input], columns=feature_names)
+        input_scaled = scaler.transform(input_df)
+        prediction = model.predict(input_scaled)[0]
+        proba = model.predict_proba(input_scaled)[0][1]
 
-st.subheader("Manual Input")
-v_features = []
-for i in range(1, 29):
-    val = st.number_input(f"V{i}", value=0.0)
-    v_features.append(val)
-scaled_amount = st.number_input("Scaled Amount", value=0.0)
-scaled_time = st.number_input("Scaled Time", value=0.0)
-
-if st.button("Predict"):
-    input_data = pd.DataFrame([[scaled_time, scaled_amount] + v_features])
-    input_scaled = scaler.transform(input_data)
-    pred = model.predict(input_scaled)[0]
-    st.success("Prediction: " + ("Fraud ❌" if pred == 1 else "Legit ✅"))
+        # Show result
+        if prediction == 1:
+            st.error(f"⚠️ Fraudulent Transaction Detected! (Confidence: {proba:.2%})")
+        else:
+            st.success(f"✅ Legitimate Transaction. (Fraud Risk: {proba:.2%})")
+    except Exception as e:
+        st.error(f"Error during prediction: {e}")
